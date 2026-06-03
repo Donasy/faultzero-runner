@@ -22,6 +22,12 @@ jobs:
         run: mkdir -p "$RESULTS_DIR"
 
       # ── Phase 1: Playwright (UI crawl + performance) ──────────
+      - name: Setup Environment & Playwright
+        run: |
+          npm init -y
+          npm install playwright playwright-core --save
+          npx playwright install chromium --with-deps
+
       - name: Run Playwright crawl
         id: playwright
         run: node scripts/scan/playwright-crawl.mjs
