@@ -28,10 +28,10 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Dependencies & Playwright
+      - name: Install Dependencies
         run: |
-          npm init -y
-          npm install playwright playwright-core
+          echo '{}' > package.json
+          npm install playwright@latest playwright-core@latest
           npx playwright install chromium --with-deps
 
       - name: Run Playwright crawl
