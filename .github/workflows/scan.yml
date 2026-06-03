@@ -26,7 +26,7 @@ jobs:
         run: |
           npm init -y > /dev/null 2>&1
           npm install playwright@1.60.0 2>&1 | tail -1
-          npx playwright install chromium 2>&1 | tail -1
+          npx playwright install chromium --with-deps 2>&1 | tail -5
 
       - name: Run Playwright crawl
         id: playwright
@@ -80,8 +80,11 @@ jobs:
       - name: Mark scan as failed
         if: failure() || cancelled()
         run: |
-          curl -s -X POST "$FALLBACK_API_URL/api/scans/$SCAN_ID/fail" \
+          echo "[fallback] scan_id=$SCAN_ID url=$FALLBACK_API_URL/api/scans/$SCAN_ID/fail"
+          curl -v -X POST "$FALLBACK_API_URL/api/scans/$SCAN_ID/fail" \
             -H "x-fallback-secret: ${{ secrets.N8N_FALLBACK_SECRET }}" \
-            -H "Content-Type: application/json"
+            -H "Content-Type: application/json" 2>&1
+          echo "[fallback] exit_code=$?"
         env:
+          SCAN_ID: ${{ github.event.client_payload.scan_id }}
           FALLBACK_API_URL: ${{ secrets.FALLBACK_API_URL }}
