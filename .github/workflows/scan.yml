@@ -9,6 +9,8 @@ env:
   TARGET_URL: ${{ github.event.client_payload.target_url }}
   VUS: ${{ github.event.client_payload.vus }}
   RESULTS_DIR: ${{ github.workspace }}/results
+  FALLBACK_API_URL: ${{ secrets.FALLBACK_API_URL }}
+  N8N_FALLBACK_SECRET: ${{ secrets.N8N_FALLBACK_SECRET }}
 
 jobs:
   execute:
@@ -21,11 +23,15 @@ jobs:
       - name: Create results directory
         run: mkdir -p "$RESULTS_DIR"
 
-      # ── Phase 1: Playwright (UI crawl + performance) ──────────
-      - name: Setup Environment & Playwright
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies & Playwright
         run: |
           npm init -y
-          npm install playwright playwright-core --save
+          npm install playwright playwright-core
           npx playwright install chromium --with-deps
 
       - name: Run Playwright crawl
@@ -34,57 +40,11 @@ jobs:
         env:
           PLAYWRIGHT_BROWSERS_PATH: 0
 
-      # ── Phase 2: k6 (load testing) ────────────────────────────────
-      - name: Setup k6
-        run: |
-          curl -s https://dl.k6.io/key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/k6.gpg
-          echo "deb [signed-by=/usr/share/keyrings/k6.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
-          sudo apt-get update -qq && sudo apt-get install -y -qq k6 2>&1 | tail -1
-
-      - name: Run k6 load test
-        id: k6
-        run: k6 run --vus "$VUS" --duration 60s --summary-export "$RESULTS_DIR/k6-summary.json" scripts/scan/k6-script.js
-
-      # ── Phase 3: OWASP ZAP (security scan) ────────────────────────
-      - name: Run OWASP ZAP security scan
-        id: zap
-        continue-on-error: true
-        run: |
-          docker run --rm -v "$RESULTS_DIR:/zap/results" \
-            ghcr.io/zaproxy/zaproxy:stable \
-            zap-full-scan.py -t "$TARGET_URL" \
-            -J /zap/results/zap-report.json \
-            -r /zap/results/zap-report.html \
-            -I 2>&1 | tail -20
-
-      # ── Consolidate: merge results → webhook ──────────────────────
-      - name: Combine results and send to n8n
-        if: always()
-        run: node scripts/scan/combine-results.mjs
-        env:
-          N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
-          PLAYWRIGHT_OUTPUT: ${{ steps.playwright.outputs.json }}
-          K6_SUMMARY: $RESULTS_DIR/k6-summary.json
-          ZAP_JSON: $RESULTS_DIR/zap-report.json
-
-      # ── Artifact upload (fallback if webhook fails) ────────────────
-      - name: Upload raw results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: scan-${{ github.event.client_payload.scan_id }}
-          path: ${{ github.workspace }}/results/
-          retention-days: 7
-
-      # ── Fallback: mark scan failed when any step fails ─────────────
-      - name: Mark scan as failed
+      - name: Mark scan as failed (Fallback)
         if: failure() || cancelled()
         run: |
-          echo "[fallback] scan_id=$SCAN_ID url=$FALLBACK_API_URL/api/scans/$SCAN_ID/fail"
-          curl -v -X POST "$FALLBACK_API_URL/api/scans/$SCAN_ID/fail" \
-            -H "x-fallback-secret: ${{ secrets.N8N_FALLBACK_SECRET }}" \
-            -H "Content-Type: application/json" 2>&1
-          echo "[fallback] exit_code=$?"
-        env:
-          SCAN_ID: ${{ github.event.client_payload.scan_id }}
-          FALLBACK_API_URL: ${{ secrets.FALLBACK_API_URL }}
+          echo "Job failed with exit code $?"
+          curl -v -X PATCH "$FALLBACK_API_URL/api/scans/$SCAN_ID/fail" \
+          -H "Content-Type: application/json" \
+          -H "x-fallback-secret: $N8N_FALLBACK_SECRET" \
+          -d "{\"status\": \"failed\", \"error\": \"GitHub Action Execution Failed\"}"
