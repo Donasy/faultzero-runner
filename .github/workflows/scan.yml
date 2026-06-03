@@ -37,8 +37,6 @@ jobs:
       - name: Run Playwright crawl
         id: playwright
         run: node scripts/scan/playwright-crawl.mjs
-        env:
-          PLAYWRIGHT_BROWSERS_PATH: 0
 
       - name: Mark scan as failed (Fallback)
         if: failure() || cancelled()
