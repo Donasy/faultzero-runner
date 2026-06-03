@@ -1,0 +1,77 @@
+name: FaultZero Scan
+
+on:
+  repository_dispatch:
+    types: [scan]
+
+env:
+  SCAN_ID: ${{ github.event.client_payload.scan_id }}
+  TARGET_URL: ${{ github.event.client_payload.target_url }}
+  VUS: ${{ github.event.client_payload.vus }}
+  RESULTS_DIR: ${{ github.workspace }}/results
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create results directory
+        run: mkdir -p "$RESULTS_DIR"
+
+      # ── Phase 1: Playwright (UI crawl + performance) ──────────────
+      - name: Setup Playwright
+        run: |
+          npm init -y > /dev/null 2>&1
+          npm install playwright@1.60.0 2>&1 | tail -1
+          npx playwright install chromium 2>&1 | tail -1
+
+      - name: Run Playwright crawl
+        id: playwright
+        run: node scripts/scan/playwright-crawl.mjs
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: 0
+
+      # ── Phase 2: k6 (load testing) ────────────────────────────────
+      - name: Setup k6
+        run: |
+          curl -s https://dl.k6.io/key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/k6.gpg
+          echo "deb [signed-by=/usr/share/keyrings/k6.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq k6 2>&1 | tail -1
+
+      - name: Run k6 load test
+        id: k6
+        run: k6 run --vus "$VUS" --duration 60s --summary-export "$RESULTS_DIR/k6-summary.json" scripts/scan/k6-script.js
+
+      # ── Phase 3: OWASP ZAP (security scan) ────────────────────────
+      - name: Run OWASP ZAP security scan
+        id: zap
+        continue-on-error: true
+        run: |
+          docker run --rm -v "$RESULTS_DIR:/zap/results" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-full-scan.py -t "$TARGET_URL" \
+            -J /zap/results/zap-report.json \
+            -r /zap/results/zap-report.html \
+            -I 2>&1 | tail -20
+
+      # ── Consolidate: merge results → webhook ──────────────────────
+      - name: Combine results and send to n8n
+        if: always()
+        run: node scripts/scan/combine-results.mjs
+        env:
+          N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
+          PLAYWRIGHT_OUTPUT: ${{ steps.playwright.outputs.json }}
+          K6_SUMMARY: $RESULTS_DIR/k6-summary.json
+          ZAP_JSON: $RESULTS_DIR/zap-report.json
+
+      # ── Artifact upload (fallback if webhook fails) ────────────────
+      - name: Upload raw results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-${{ github.event.client_payload.scan_id }}
+          path: ${{ github.workspace }}/results/
+          retention-days: 7
