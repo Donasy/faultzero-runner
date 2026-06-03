@@ -75,3 +75,13 @@ jobs:
           name: scan-${{ github.event.client_payload.scan_id }}
           path: ${{ github.workspace }}/results/
           retention-days: 7
+
+      # ── Fallback: mark scan failed when any step fails ─────────────
+      - name: Mark scan as failed
+        if: failure() || cancelled()
+        run: |
+          curl -s -X POST "$FALLBACK_API_URL/api/scans/$SCAN_ID/fail" \
+            -H "x-fallback-secret: ${{ secrets.N8N_FALLBACK_SECRET }}" \
+            -H "Content-Type: application/json"
+        env:
+          FALLBACK_API_URL: ${{ secrets.FALLBACK_API_URL }}
