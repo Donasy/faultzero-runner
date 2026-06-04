@@ -16,6 +16,7 @@ try {
   // no proxy file — use direct
 }
 
+let browser;
 let output;
 
 try {
@@ -29,7 +30,7 @@ try {
   };
   if (proxyString) launchOpts.proxy = { server: proxyString };
 
-  const browser = await chromium.launch(launchOpts);
+  browser = await chromium.launch(launchOpts);
 
   const context = await browser.newContext({
     userAgent:
@@ -49,7 +50,7 @@ try {
     failedRequests.push({ url: req.url(), failure: req.failure()?.errorText }),
   );
 
-  await page.goto(TARGET_URL, { waitUntil: "networkidle", timeout: 60000 });
+  await page.goto(TARGET_URL, { timeout: 15000, waitUntil: "domcontentloaded" });
   await page.waitForTimeout(2000);
 
   const title = await page.title();
@@ -71,8 +72,6 @@ try {
   } catch {
     // performance API may be blocked by Cloudflare
   }
-
-  await browser.close();
 
   output = {
     tool: "playwright",
@@ -107,6 +106,10 @@ try {
       error: err.message,
     },
   };
+} finally {
+  if (browser) {
+    try { await browser.close(); } catch {}
+  }
 }
 
 fs.writeFileSync(`${RESULTS_DIR}/playwright.json`, JSON.stringify(output, null, 2));
