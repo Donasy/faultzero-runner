@@ -22,6 +22,7 @@ function safeRead(filePath) {
 const playwrightData = safeRead(`${RESULTS_DIR}/playwright.json`);
 const securityData = safeRead(`${RESULTS_DIR}/security.json`);
 const secretsData = safeRead(`${RESULTS_DIR}/secrets.json`);
+const k6Data = safeRead(`${RESULTS_DIR}/k6.json`);
 
 const finalReport = {
   scan_id: process.env.SCAN_ID,
@@ -30,7 +31,8 @@ const finalReport = {
   playwright: playwrightData,
   security: securityData,
   secrets: secretsData,
+  performance: k6Data,
 };
 
 writeFileSync(`${RESULTS_DIR}/final_report.json`, JSON.stringify(finalReport, null, 2));
-console.log(`[aggregate] done playwright=${!!playwrightData} security=${!!securityData} secrets=${!!secretsData}`);
+console.log(`[aggregate] done playwright=${!!playwrightData} security=${!!securityData} secrets=${!!secretsData} performance=${!!k6Data}`);
