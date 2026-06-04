@@ -44,7 +44,7 @@ async function testProxy(proxy) {
   }
 }
 
-let activeProxy = "direct";
+let proxies = ["direct"];
 
 try {
   if (!RESULTS_DIR) throw new Error("missing RESULTS_DIR");
@@ -53,15 +53,18 @@ try {
   const allProxies = await fetchProxyList();
   console.log(`[proxy-manager] got ${allProxies.length} proxies`);
 
-  const candidates = allProxies.slice(0, 5);
-  console.log(`[proxy-manager] testing top ${candidates.length} proxies...`);
+  const candidates = allProxies.slice(0, 20);
+  console.log(`[proxy-manager] testing ${candidates.length} proxies...`);
 
   const results = await Promise.allSettled(candidates.map(testProxy));
-  const working = results.find((r) => r.status === "fulfilled" && r.value);
+  const working = results
+    .filter((r) => r.status === "fulfilled" && r.value)
+    .map((r) => r.value)
+    .slice(0, 5);
 
-  if (working) {
-    activeProxy = working.value;
-    console.log(`[proxy-manager] active proxy: ${activeProxy}`);
+  if (working.length > 0) {
+    proxies = working;
+    console.log(`[proxy-manager] ${working.length} working proxy(-ies): ${proxies.join(", ")}`);
   } else {
     console.log("[proxy-manager] no working proxy found, using direct");
   }
@@ -69,5 +72,5 @@ try {
   console.error(`[proxy-manager] error: ${err.message}`);
 }
 
-fs.writeFileSync(`${RESULTS_DIR}/active_proxy.txt`, activeProxy);
-console.log(`[proxy-manager] saved active_proxy.txt: ${activeProxy}`);
+fs.writeFileSync(`${RESULTS_DIR}/proxies.json`, JSON.stringify(proxies, null, 2));
+console.log(`[proxy-manager] saved proxies.json: ${proxies.length} proxy(-ies)`);

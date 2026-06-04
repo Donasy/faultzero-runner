@@ -4,10 +4,11 @@ const fs = await import("fs");
 
 let proxyDispatcher;
 try {
-  const proxy = fs.readFileSync(`${RESULTS_DIR}/active_proxy.txt`, "utf-8").trim();
-  if (proxy && proxy !== "direct") {
+  const raw = fs.readFileSync(`${RESULTS_DIR}/proxies.json`, "utf-8");
+  const parsed = JSON.parse(raw);
+  if (Array.isArray(parsed) && parsed.length > 0 && parsed[0] !== "direct") {
     const { ProxyAgent } = await import("undici");
-    proxyDispatcher = new ProxyAgent(proxy);
+    proxyDispatcher = new ProxyAgent(parsed[0]);
   }
 } catch {}
 
