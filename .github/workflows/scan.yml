@@ -46,3 +46,12 @@ jobs:
           -H "Content-Type: application/json" \
           -H "x-fallback-secret: $N8N_FALLBACK_SECRET" \
           -d "{\"status\": \"failed\", \"error\": \"GitHub Action Execution Failed\"}"
+
+      - name: Send Report to n8n
+        run: |
+          curl -X POST "https://n8n.ali-alhaj.site/webhook/faultzero-report" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "scan_id": "${{ github.event.client_payload.scan_id }}",
+            "target_url": "${{ github.event.client_payload.target_url }}"
+          }'
