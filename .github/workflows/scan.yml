@@ -52,22 +52,14 @@ jobs:
         env:
           JOB_STATUS: ${{ job.status }}
         run: |
-          node -e "
-          const fs = require('fs');
-          const report = JSON.parse(fs.readFileSync(process.env.RESULTS_DIR + '/playwright.json', 'utf8'));
-          const payload = JSON.stringify({
-            scan_id: process.env.SCAN_ID,
-            target_url: process.env.TARGET_URL,
-            status: process.env.JOB_STATUS,
-            report: report
-          });
-          const https = require('https');
-          const req = https.request('https://n8n.ali-alhaj.site/webhook/faultzero-report', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-          }, (res) => {
-            console.log('[n8n] status=' + res.statusCode);
-          });
-          req.write(payload);
-          req.end();
-          "
+          REPORT=$(cat "$RESULTS_DIR/playwright.json")
+          jq -n \
+            --arg scan_id "$SCAN_ID" \
+            --arg target_url "$TARGET_URL" \
+            --arg status "$JOB_STATUS" \
+            --argjson report "$REPORT" \
+            '{scan_id: $scan_id, target_url: $target_url, status: $status, report: $report}' | \
+          curl -s -X POST "https://n8n.ali-alhaj.site/webhook/faultzero-report" \
+            -H "Content-Type: application/json" \
+            -d @-
+          echo "[n8n] sent successfully"
