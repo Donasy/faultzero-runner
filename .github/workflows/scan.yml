@@ -38,6 +38,14 @@ jobs:
         id: playwright
         run: node scripts/scan/playwright-crawl.mjs
 
+      - name: Run Security Scan
+        id: security
+        run: node scripts/scan/security-scan.mjs
+
+      - name: Aggregate Reports
+        id: aggregate
+        run: node scripts/scan/aggregate-reports.mjs
+
       - name: Mark scan as failed (Fallback)
         if: failure() || cancelled()
         run: |
@@ -52,7 +60,7 @@ jobs:
         env:
           JOB_STATUS: ${{ job.status }}
         run: |
-          REPORT=$(cat "$RESULTS_DIR/playwright.json")
+          REPORT=$(cat "$RESULTS_DIR/final_report.json")
           jq -n \
             --arg scan_id "$SCAN_ID" \
             --arg target_url "$TARGET_URL" \
