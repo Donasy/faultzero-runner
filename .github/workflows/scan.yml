@@ -57,6 +57,10 @@ jobs:
         continue-on-error: true
         run: k6 run --summary-export="$RESULTS_DIR/k6.json" scripts/scan/load-test.js
 
+      - name: Run Tech Detection
+        id: tech
+        run: node scripts/scan/tech-detect.mjs
+
       - name: Aggregate Reports
         id: aggregate
         run: node scripts/scan/aggregate-reports.mjs
