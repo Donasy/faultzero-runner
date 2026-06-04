@@ -34,6 +34,10 @@ jobs:
           npm install playwright-extra@latest playwright@latest playwright-core@latest puppeteer-extra-plugin-stealth@latest
           npx playwright install chromium --with-deps
 
+      - name: Run Proxy Manager
+        id: proxy
+        run: node scripts/scan/proxy-manager.mjs
+
       - name: Run Playwright crawl
         id: playwright
         run: node scripts/scan/playwright-crawl.mjs
