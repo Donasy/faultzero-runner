@@ -48,10 +48,26 @@ jobs:
           -d "{\"status\": \"failed\", \"error\": \"GitHub Action Execution Failed\"}"
 
       - name: Send Report to n8n
+        if: success()
+        env:
+          JOB_STATUS: ${{ job.status }}
         run: |
-          curl -X POST "https://n8n.ali-alhaj.site/webhook/faultzero-report" \
-          -H "Content-Type: application/json" \
-          -d '{
-            "scan_id": "${{ github.event.client_payload.scan_id }}",
-            "target_url": "${{ github.event.client_payload.target_url }}"
-          }'
+          node -e "
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync(process.env.RESULTS_DIR + '/playwright.json', 'utf8'));
+          const payload = JSON.stringify({
+            scan_id: process.env.SCAN_ID,
+            target_url: process.env.TARGET_URL,
+            status: process.env.JOB_STATUS,
+            report: report
+          });
+          const https = require('https');
+          const req = https.request('https://n8n.ali-alhaj.site/webhook/faultzero-report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          }, (res) => {
+            console.log('[n8n] status=' + res.statusCode);
+          });
+          req.write(payload);
+          req.end();
+          "
