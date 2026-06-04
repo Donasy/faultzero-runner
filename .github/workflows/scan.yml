@@ -31,7 +31,7 @@ jobs:
       - name: Install Dependencies
         run: |
           echo '{}' > package.json
-          npm install playwright@latest playwright-core@latest
+          npm install playwright-extra@latest playwright@latest playwright-core@latest puppeteer-extra-plugin-stealth@latest
           npx playwright install chromium --with-deps
 
       - name: Run Playwright crawl
