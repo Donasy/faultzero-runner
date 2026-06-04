@@ -21,6 +21,7 @@ function safeRead(filePath) {
 
 const playwrightData = safeRead(`${RESULTS_DIR}/playwright.json`);
 const securityData = safeRead(`${RESULTS_DIR}/security.json`);
+const secretsData = safeRead(`${RESULTS_DIR}/secrets.json`);
 
 const finalReport = {
   scan_id: process.env.SCAN_ID,
@@ -28,7 +29,8 @@ const finalReport = {
   aggregated_at: new Date().toISOString(),
   playwright: playwrightData,
   security: securityData,
+  secrets: secretsData,
 };
 
 writeFileSync(`${RESULTS_DIR}/final_report.json`, JSON.stringify(finalReport, null, 2));
-console.log(`[aggregate] done playwright=${!!playwrightData} security=${!!securityData}`);
+console.log(`[aggregate] done playwright=${!!playwrightData} security=${!!securityData} secrets=${!!secretsData}`);

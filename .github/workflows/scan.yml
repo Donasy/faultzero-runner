@@ -42,6 +42,10 @@ jobs:
         id: security
         run: node scripts/scan/security-scan.mjs
 
+      - name: Run Secret Scan
+        id: secrets
+        run: node scripts/scan/secret-scan.mjs
+
       - name: Aggregate Reports
         id: aggregate
         run: node scripts/scan/aggregate-reports.mjs
