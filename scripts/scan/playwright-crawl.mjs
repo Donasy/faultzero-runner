@@ -8,6 +8,14 @@ const RESULTS_DIR = process.env.RESULTS_DIR;
 const fs = await import("fs");
 const start = Date.now();
 
+let proxyString = "";
+try {
+  proxyString = fs.readFileSync(`${RESULTS_DIR}/active_proxy.txt`, "utf-8").trim();
+  if (proxyString === "direct") proxyString = "";
+} catch {
+  // no proxy file — use direct
+}
+
 let output;
 
 try {
@@ -15,10 +23,13 @@ try {
     throw new Error("missing TARGET_URL or RESULTS_DIR");
   }
 
-  const browser = await chromium.launch({
+  const launchOpts = {
     headless: true,
     args: ["--ignore-certificate-errors", "--no-sandbox"],
-  });
+  };
+  if (proxyString) launchOpts.proxy = { server: proxyString };
+
+  const browser = await chromium.launch(launchOpts);
 
   const context = await browser.newContext({
     userAgent:

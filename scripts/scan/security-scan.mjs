@@ -2,6 +2,17 @@ const TARGET_URL = process.env.TARGET_URL;
 const RESULTS_DIR = process.env.RESULTS_DIR;
 const fs = await import("fs");
 
+let proxyDispatcher;
+try {
+  const proxy = fs.readFileSync(`${RESULTS_DIR}/active_proxy.txt`, "utf-8").trim();
+  if (proxy && proxy !== "direct") {
+    const { ProxyAgent } = await import("undici");
+    proxyDispatcher = new ProxyAgent(proxy);
+  }
+} catch {}
+
+const withProxy = (opts) => proxyDispatcher ? { ...opts, dispatcher: proxyDispatcher } : opts;
+
 const SENSITIVE_PATHS = [
   "/.env", "/.env.local", "/.env.production", "/.git/config",
   "/admin", "/config.json", "/wp-config.php", "/.htaccess",
@@ -32,10 +43,10 @@ try {
   const baseOrigin = url.origin;
 
   // 1. Check security headers
-  const res = await fetch(TARGET_URL, {
+  const res = await fetch(TARGET_URL, withProxy({
     signal: AbortSignal.timeout(15000),
     redirect: "follow",
-  });
+  }));
 
   const headers = {};
   res.headers.forEach((v, k) => { headers[k] = v; });
@@ -90,11 +101,11 @@ try {
   for (const path of SENSITIVE_PATHS) {
     try {
       const probeUrl = `${baseOrigin}${path}`;
-      const probeRes = await fetch(probeUrl, {
+      const probeRes = await fetch(probeUrl, withProxy({
         method: "GET",
         signal: AbortSignal.timeout(5000),
         redirect: "manual",
-      });
+      }));
       if (probeRes.status === 200) {
         probeResults.push({ path, status: 200, size: (await probeRes.clone().text()).length });
       } else if (probeRes.status === 301 || probeRes.status === 302 || probeRes.status === 303 || probeRes.status === 307 || probeRes.status === 308) {

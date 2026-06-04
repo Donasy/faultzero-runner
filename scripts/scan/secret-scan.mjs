@@ -2,6 +2,17 @@ const TARGET_URL = process.env.TARGET_URL;
 const RESULTS_DIR = process.env.RESULTS_DIR;
 const fs = await import("fs");
 
+let proxyDispatcher;
+try {
+  const proxy = fs.readFileSync(`${RESULTS_DIR}/active_proxy.txt`, "utf-8").trim();
+  if (proxy && proxy !== "direct") {
+    const { ProxyAgent } = await import("undici");
+    proxyDispatcher = new ProxyAgent(proxy);
+  }
+} catch {}
+
+const withProxy = (opts) => proxyDispatcher ? { ...opts, dispatcher: proxyDispatcher } : opts;
+
 const SECRET_PATTERNS = [
   { name: "Google API Key", pattern: /AIza[0-9A-Za-z_-]{35}/g, severity: "high" },
   { name: "Stripe Live Secret", pattern: /sk_live_[0-9a-zA-Z]{24,}/g, severity: "critical" },
@@ -43,10 +54,10 @@ try {
   }
 
   // 1. Fetch HTML
-  const htmlRes = await fetch(TARGET_URL, {
+  const htmlRes = await fetch(TARGET_URL, withProxy({
     signal: AbortSignal.timeout(15000),
     redirect: "follow",
-  });
+  }));
   const html = await htmlRes.text();
 
   // 2. Parse script tags for JS bundle URLs
@@ -70,10 +81,10 @@ try {
   const seen = new Set();
   for (const jsUrl of scriptSrcs) {
     try {
-      const jsRes = await fetch(jsUrl, {
+      const jsRes = await fetch(jsUrl, withProxy({
         signal: AbortSignal.timeout(15000),
         redirect: "follow",
-      });
+      }));
       const jsContent = await jsRes.text();
 
       for (const { name, pattern, severity } of SECRET_PATTERNS) {

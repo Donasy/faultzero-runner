@@ -2,6 +2,17 @@ const TARGET_URL = process.env.TARGET_URL;
 const RESULTS_DIR = process.env.RESULTS_DIR;
 const fs = await import("fs");
 
+let proxyDispatcher;
+try {
+  const proxy = fs.readFileSync(`${RESULTS_DIR}/active_proxy.txt`, "utf-8").trim();
+  if (proxy && proxy !== "direct") {
+    const { ProxyAgent } = await import("undici");
+    proxyDispatcher = new ProxyAgent(proxy);
+  }
+} catch {}
+
+const withProxy = (opts) => proxyDispatcher ? { ...opts, dispatcher: proxyDispatcher } : opts;
+
 const PATTERNS = {
   "Next.js": [{ header: "x-nextjs" }, { header: "x-powered-by", value: /next/i }, { html: /_next\/static/i }, { html: /__NEXT_DATA__/i }, { html: /next\.js/i }],
   "Nuxt.js": [{ header: "x-nuxt" }, { html: /__NUXT__/i }, { html: /nuxt\.js/i }],
@@ -67,10 +78,10 @@ try {
     throw new Error("missing TARGET_URL or RESULTS_DIR");
   }
 
-  const res = await fetch(TARGET_URL, {
+  const res = await fetch(TARGET_URL, withProxy({
     signal: AbortSignal.timeout(15000),
     redirect: "follow",
-  });
+  }));
   const html = await res.text();
 
   const headers = {};
