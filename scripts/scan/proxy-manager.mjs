@@ -2,7 +2,7 @@ const RESULTS_DIR = process.env.RESULTS_DIR;
 const fs = await import("fs");
 
 const PROXY_TARGET = "https://httpbin.org/ip";
-const TIMEOUT_MS = 3000;
+const TIMEOUT_MS = 5000;
 
 async function fetchProxyList() {
   const urls = [
@@ -53,7 +53,7 @@ try {
   const allProxies = await fetchProxyList();
   console.log(`[proxy-manager] got ${allProxies.length} proxies`);
 
-  const candidates = allProxies.slice(0, 20);
+  const candidates = allProxies.slice(0, 200);
   console.log(`[proxy-manager] testing ${candidates.length} proxies...`);
 
   const results = await Promise.allSettled(candidates.map(testProxy));
