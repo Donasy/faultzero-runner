@@ -16,14 +16,15 @@ const vusPerProxy = Math.ceil(totalVUs / proxies.length);
 
 console.log(`[k6-swarm] proxies=${proxies.length} totalVUs=${totalVUs} vusPerProxy=${vusPerProxy}`);
 
-function spawnK6(proxy, index) {
+async function spawnK6(proxy, index) {
+  await new Promise((r) => setTimeout(r, index * 2000));
   return new Promise((resolve) => {
     const outFile = `${RESULTS_DIR}/k6_${index}.json`;
     let cmd;
     if (proxy === "direct") {
-      cmd = `k6 run --summary-export="${outFile}" -e TARGET_URL="${TARGET_URL}" -e VUS=${vusPerProxy} scripts/scan/load-test.js`;
+      cmd = `k6 run --no-api --summary-export="${outFile}" -e TARGET_URL="${TARGET_URL}" -e VUS=${vusPerProxy} scripts/scan/load-test.js`;
     } else {
-      cmd = `HTTP_PROXY=${proxy} HTTPS_PROXY=${proxy} k6 run --summary-export="${outFile}" -e TARGET_URL="${TARGET_URL}" -e VUS=${vusPerProxy} scripts/scan/load-test.js`;
+      cmd = `HTTP_PROXY=${proxy} HTTPS_PROXY=${proxy} k6 run --no-api --summary-export="${outFile}" -e TARGET_URL="${TARGET_URL}" -e VUS=${vusPerProxy} scripts/scan/load-test.js`;
     }
 
     console.log(`[k6-swarm] spawning #${index} proxy=${proxy} vus=${vusPerProxy}`);
