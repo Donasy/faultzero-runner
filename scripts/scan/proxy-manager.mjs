@@ -1,7 +1,7 @@
 const RESULTS_DIR = process.env.RESULTS_DIR;
 const fs = await import("fs");
 
-const PROXY_TARGET = "https://httpbin.org/ip";
+const PROXY_TARGET = process.env.TARGET_URL || "https://httpbin.org/ip";
 const TIMEOUT_MS = 5000;
 
 async function fetchProxyList() {
@@ -36,9 +36,7 @@ async function testProxy(proxy) {
     });
 
     clearTimeout(timer);
-    if (!res.ok) return null;
-    const body = await res.json();
-    return body?.origin ? proxyUrl : null;
+    return res.ok ? proxyUrl : null;
   } catch {
     return null;
   }
