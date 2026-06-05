@@ -22,9 +22,9 @@ async function spawnK6(proxy, index) {
     const outFile = `${RESULTS_DIR}/k6_${index}.json`;
     let cmd;
     if (proxy === "direct") {
-      cmd = `k6 run --no-api --summary-export="${outFile}" -e TARGET_URL="${TARGET_URL}" -e VUS=${vusPerProxy} scripts/scan/load-test.js`;
+      cmd = `k6 run --address localhost:0 --summary-export="${outFile}" -e TARGET_URL="${TARGET_URL}" -e VUS=${vusPerProxy} scripts/scan/load-test.js`;
     } else {
-      cmd = `HTTP_PROXY=${proxy} HTTPS_PROXY=${proxy} k6 run --no-api --summary-export="${outFile}" -e TARGET_URL="${TARGET_URL}" -e VUS=${vusPerProxy} scripts/scan/load-test.js`;
+      cmd = `HTTP_PROXY=${proxy} HTTPS_PROXY=${proxy} k6 run --address localhost:0 --summary-export="${outFile}" -e TARGET_URL="${TARGET_URL}" -e VUS=${vusPerProxy} scripts/scan/load-test.js`;
     }
 
     console.log(`[k6-swarm] spawning #${index} proxy=${proxy} vus=${vusPerProxy}`);
