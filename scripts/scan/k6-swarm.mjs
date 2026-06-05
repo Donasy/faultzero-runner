@@ -3,31 +3,20 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 
 const RESULTS_DIR = process.env.RESULTS_DIR;
 const TARGET_URL = process.env.TARGET_URL;
-
-let proxies = ["direct"];
-try {
-  const raw = readFileSync(`${RESULTS_DIR}/proxies.json`, "utf-8");
-  const parsed = JSON.parse(raw);
-  if (Array.isArray(parsed) && parsed.length > 0) proxies = parsed;
-} catch {}
+const PROCESS_COUNT = 4;
 
 const totalVUs = parseInt(process.env.VUS, 10) || 10;
-const vusPerProxy = Math.ceil(totalVUs / proxies.length);
+const vusPerProcess = Math.ceil(totalVUs / PROCESS_COUNT);
 
-console.log(`[k6-swarm] proxies=${proxies.length} totalVUs=${totalVUs} vusPerProxy=${vusPerProxy}`);
+console.log(`[k6-swarm] processes=${PROCESS_COUNT} totalVUs=${totalVUs} vusPerProcess=${vusPerProcess}`);
 
-async function spawnK6(proxy, index) {
+async function spawnK6(index) {
   await new Promise((r) => setTimeout(r, index * 2000));
   return new Promise((resolve) => {
     const outFile = `${RESULTS_DIR}/k6_${index}.json`;
-    let cmd;
-    if (proxy === "direct") {
-      cmd = `k6 run --address localhost:0 --summary-export="${outFile}" -e TARGET_URL="${TARGET_URL}" -e VUS=${vusPerProxy} scripts/scan/load-test.js`;
-    } else {
-      cmd = `HTTP_PROXY=${proxy} HTTPS_PROXY=${proxy} k6 run --address localhost:0 --summary-export="${outFile}" -e TARGET_URL="${TARGET_URL}" -e VUS=${vusPerProxy} scripts/scan/load-test.js`;
-    }
+    const cmd = `k6 run --address localhost:0 --summary-export="${outFile}" -e TARGET_URL="${TARGET_URL}" -e VUS=${vusPerProcess} scripts/scan/load-test.js`;
 
-    console.log(`[k6-swarm] spawning #${index} proxy=${proxy} vus=${vusPerProxy}`);
+    console.log(`[k6-swarm] spawning #${index} vus=${vusPerProcess}`);
     exec(cmd, { timeout: 60000 }, (err, stdout, stderr) => {
       if (err) console.warn(`[k6-swarm] #${index} error: ${err.message}`);
       if (stdout) console.log(`[k6-swarm] #${index} stdout: ${stdout.trim().split("\n").pop()}`);
@@ -37,16 +26,16 @@ async function spawnK6(proxy, index) {
 }
 
 const start = Date.now();
-await Promise.all(proxies.map((p, i) => spawnK6(p, i)));
+const indices = Array.from({ length: PROCESS_COUNT }, (_, i) => i);
+await Promise.all(indices.map(spawnK6));
 const elapsed = ((Date.now() - start) / 1000).toFixed(1);
 console.log(`[k6-swarm] all finished in ${elapsed}s, aggregating...`);
 
-// Aggregate results
 let totalCount = 0;
 let rates = [];
 let allDurations = { avg: [], min: [], med: [], max: [], "p(90)": [], "p(95)": [], "p(99)": [] };
 
-for (let i = 0; i < proxies.length; i++) {
+for (let i = 0; i < PROCESS_COUNT; i++) {
   const file = `${RESULTS_DIR}/k6_${i}.json`;
   if (!existsSync(file)) {
     console.warn(`[k6-swarm] ${file} not found`);
